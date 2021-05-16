@@ -98,7 +98,7 @@ export class App extends React.Component {
 
     // If everything is loaded, we render the application.
     return (
-      <div className="container p-4 text-center">
+      <div className="container p-4" style={{backgroundColor:"lightgrey",marginTop:"100px"}}>
         <div className="row">
           <div className="col-12">
             <h1>
@@ -389,3 +389,4 @@ export class App extends React.Component {
     return false;
   }
 }
+

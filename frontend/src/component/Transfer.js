@@ -20,7 +20,8 @@ export function Transfer({ transferTokens, tokenSymbol }) {
         }}
       >
         <div className="form-group">
-          <label>Use 1 of {tokenSymbol} to win 500 of {tokenSymbol}, Please enter a four digit number</label>
+            <label>Use 1 of {tokenSymbol} to win 500 of {tokenSymbol}</label>
+             <p> Please enter a four digital number</p>
           <input
             className="form-control"
             type="number"
