@@ -12,17 +12,17 @@ git clone https://github.com/tomas0451/lottery.git
 cd lottery
 yarn
 ```
-Once installed, let's run truffle's testing network. Of course you can config to run other test network by edit the truffle-config.js file:
-
+Once installed, let's run truffle's testing network.
 ```
-yarn node
+npm install -g ganache-cli  
+ganache-cli 
 ```
 Next,deploy contract to the test-net
 ```
 yarn prebuild
 yarn reset
 ```
-Then, run above script ,you should get the lottery contract address of  proxy,update the address in this path "./frontend/src/contract/contract-address.json"
+Then, run above script ,you can get the lottery contract address of  proxy (TransparentUpgradeableProxy),use this address to update the address in this path "./frontend/src/contract/contract-address.json"
 ,and run this script
 ```
 yarn copy

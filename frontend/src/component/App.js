@@ -370,7 +370,7 @@ export class App extends React.Component {
     console.log("Network Id: "+window.ethereum.networkVersion);
 
     this.setState({
-      networkError: 'Please connect Metamask to Localhost:8545'
+      networkError: 'Please connect Metamask to Localhost:8545, change  NETWORK_ID:'+NETWORK_ID +' to NETWORK_ID: '+window.ethereum.networkVersion
     });
 
     return false;
