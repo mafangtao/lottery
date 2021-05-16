@@ -49,7 +49,7 @@ module.exports = {
     },
     develop: {
       port: 8545,
-      network_id: 20,
+      network_id: 1337,
       accounts: 5,
       defaultEtherBalance: 500,
       blockTime: 3

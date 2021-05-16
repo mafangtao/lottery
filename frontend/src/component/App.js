@@ -1,10 +1,9 @@
 import React from "react";
 
-// We'll use ethers to interact with the Ethereum network and our contract
-import { ethers } from "ethers";
-
+// We'll use web3 to interact with the Ethereum network and our contract
+import Web3 from "web3";
 // We import the contract's artifacts and address here, as we are going to be
-// using them with ethers
+
 import LotteryArtifact from "../contract/Lottery.json";
 import contractAddress from "../contract/contract-address.json";
 
@@ -19,28 +18,20 @@ import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { BetResultMessage } from "./BetResultMessage";
 import { WaitingForTransactionMessage } from "./WaitingForTransactionMessage";
 import { NoTokensMessage } from "./NoTokensMessage";
+import BigNumber from "bignumber.js";
 
 
 // This is the Hardhat Network id, you might change it in the hardhat.config.js
 // Here's a list of network ids https://docs.metamask.io/guide/ethereum-provider.html#properties
 // to use when deploying to other networks.
-const HARDHAT_NETWORK_ID = '1337';
+const HARDHAT_NETWORK_ID = '1621156022503';
 
 // This is an error code that indicates that the user canceled a transaction
 const ERROR_CODE_TX_REJECTED_BY_USER = 4001;
 
 const BET_AMOUNT = 1*10^18;
 
-// This component is in charge of doing these things:
-//   1. It connects to the user's wallet
-//   2. Initializes ethers and the Token contract
-//   3. Polls the user balance to keep it updated.
-//   4. Transfers tokens by sending transactions
-//   5. Renders the whole application
-//
-// Note that (3) and (4) are specific of this sample application, but they show
-// you how to keep your Dapp and contract's state in sync,  and how to send a
-// transaction.
+
 export class App extends React.Component {
   constructor(props) {
     super(props);
@@ -107,7 +98,7 @@ export class App extends React.Component {
             <p>
               Welcome <b>{this.state.selectedAddress}</b>, <br/>you have{" "}
               <b>
-                {ethers.utils.formatEther(this.state.ethBalance)} {this.state.ethSymbol}
+                {this._provider.utils.fromWei(this.state.ethBalance)} {this.state.ethSymbol}
               </b>
               .
             </p>
@@ -149,27 +140,17 @@ export class App extends React.Component {
 
         <div className="row">
           <div className="col-12">
-            {/*
-              If the user has no tokens, we don't show the Tranfer form
-            */}
-            {this.state.ethBalance.lt(BET_AMOUNT) && (
-              <NoTokensMessage selectedAddress={this.state.selectedAddress} />
+            {new BigNumber(this.state.ethBalance).lt(BET_AMOUNT) && (
+                <NoTokensMessage selectedAddress={this.state.selectedAddress} />
             )}
 
-
-            {/*
-              This component displays a form that the user can use to send a
-              transaction and transfer some tokens.
-              The component doesn't have logic, it just calls the transferTokens
-              callback.
-            */}
-            {this.state.ethBalance.gt(BET_AMOUNT) && (
-              <Transfer
-                transferTokens={(num) =>
-                  this._placeBet(num)
-                }
-                tokenSymbol={this.state.ethSymbol}
-              />
+            {new BigNumber(this.state.ethBalance).gt(BET_AMOUNT) && (
+                <Transfer
+                    transferTokens={(num) =>
+                        this._placeBet(num)
+                    }
+                    tokenSymbol={this.state.ethSymbol}
+                />
             )}
           </div>
         </div>
@@ -229,8 +210,6 @@ export class App extends React.Component {
       selectedAddress: userAddress,
     });
 
-    // Then, we initialize ethers, fetch the token's data, and start polling
-    // for the user's balance.
 
     // Fetching the token data and the user's balance are specific to this
     // sample project, but you can reuse the same initialization pattern.
@@ -240,18 +219,27 @@ export class App extends React.Component {
   }
 
   async _intializeEthers() {
-    // We first initialize ethers by creating a provider using window.ethereum
-    this._provider = new ethers.providers.Web3Provider(window.ethereum);
 
-    // When, we initialize the contract using that provider and the token's
-    // artifact. You can do this same thing with your contracts.
+    let web3 = window.web3
 
-    this._lottery = new ethers.Contract(
+    if (typeof web3 !== 'undefined') {
+      // Injected Web3 detected. Use Mist/MetaMask's provider.
+      web3 = new Web3(web3.currentProvider)
+    } else {
+      // No web3 instance injected, using Local web3.
+      const provider = new Web3.providers.HttpProvider(window.ethereum)
+      web3 = new Web3(provider)
+    }
+    this._provider= web3
+
+    this._lottery = new this._provider.eth.Contract(
+        LotteryArtifact.abi,
       contractAddress.Lottery,
-      LotteryArtifact.abi,
-      this._provider.getSigner(0)
+        {from:this._provider.defaultAccount}
     );
+
   }
+
 
   // The next to methods are needed to start and stop polling data. While
   // the data being polled here is specific to this example, you can use this
@@ -274,14 +262,19 @@ export class App extends React.Component {
   // The next two methods just read from the contract and store the results
   // in the component state.
   async _getTokenData() {
-      const jackpot = await this._lottery.total();
-      this.setState({ jackpot });
+
+    const that =this
+   await that._lottery.methods.total().call().then(function (jackpot) {
+      that.setState({ jackpot });
+    });
+
   }
 
   async _updateEthBalance() {
-    const ethBalance = await this._provider.getBalance(this.state.selectedAddress);
+    var ethBalance =await this._provider.eth.getBalance(this.state.selectedAddress);
     console.log("Eth balance "+ethBalance);
-   this.setState({ ethBalance });
+    ethBalance=ethBalance.toString()
+    this.setState({ethBalance });
   }
 
   // This method sends an ethereum transaction to Lottery contract.
@@ -292,39 +285,33 @@ export class App extends React.Component {
       this._dismissTransactionError();
       this._dismissBetResult();
 
-      // We send the transaction, and save its hash in the Dapp's state. This
-      // way we can indicate that we are waiting for it to be mined.
-      const tx = await this._lottery.bet(num, {value:ethers.utils.parseEther("1")});
-      this.setState({ txBeingSent: tx.hash });
+      var that =this
+     const nonce=await that._provider.eth.getTransactionCount(this.state.selectedAddress) + 1
+      await that._lottery.methods.bet(num).send({from:this.state.selectedAddress,value:this._provider.utils.toWei("1"),nonce:nonce+100
+      }).then(function(receipt){
+        console.log(receipt)
+        // The receipt, contains a status flag, which is 0 to indicate an error.
+        if (receipt.status === 0) {
+          // We can't know the exact error that make the transaction fail once it
+          // was mined, so we throw this generic one.
+          throw new Error("Transaction failed");
+        }
+        var theEvent = receipt.events
+        console.log(JSON.stringify(theEvent))
+        theEvent=theEvent.Lost||theEvent.Win
+        if(theEvent.event === 'Win'){
+          let lotNumber = theEvent.returnValues.lotNumber;
+          let level = theEvent.returnValues.level;
+          let amount = theEvent.returnValues.amount;
+          this.setState({ betResult: "Bingo！！！You win "+level+" prize, total amount is "+amount+". Lot number is: "+lotNumber });
+        }else if(theEvent.event === 'Lost'){
+          let lotNumber = theEvent.returnValues.lotNumber;
+          that.setState({ betResult: "Sorry！！！You lost. Lot number is: "+lotNumber});
+        }
+      });
 
-      // Wait for the transaction to have 2 confirmations.
-      // We use .wait() to wait for the transaction to be mined. This method
-      // returns the transaction's receipt.
-      const receipt = await tx.wait();
 
-      // The receipt, contains a status flag, which is 0 to indicate an error.
-      if (receipt.status === 0) {
-        // We can't know the exact error that make the transaction fail once it
-        // was mined, so we throw this generic one.
-        throw new Error("Transaction failed");
-      }
 
-      // If we got here, the transaction was successful, so you may want to
-      // update your state. Here, we update the user's balance.
-      await this._updateEthBalance();
-
-      // The receipt will have an "events" Array, which will have
-      // the emitted event from the Contract. The "YouWin() or YouLost()"
-      let theEvent = receipt.events.pop()
-      if(theEvent.event === 'Win'){
-        let lotNumber = theEvent.args[1];
-        let level = theEvent.args[2];
-        let amount = theEvent.args[3];
-        this.setState({ betResult: "Bingo！！！You win "+level+" prize, total amount is "+amount+". Lot number is: "+lotNumber });
-      }else if(theEvent.event === 'Lost'){
-        let lotNumber = theEvent.args[1];
-        this.setState({ betResult: "Sorry！！！You lost. Lot number is: "+lotNumber});
-      }
     } catch (error) {
       // We check the error code to see if this error was produced because the
       // user rejected a tx. If that's the case, we do nothing.
@@ -358,6 +345,7 @@ export class App extends React.Component {
     this.setState({ networkError: undefined });
   }
 
+
   // This is an utility method that turns an RPC error into a human readable
   // message.
   _getRpcErrorMessage(error) {
@@ -380,7 +368,6 @@ export class App extends React.Component {
     }
 
     console.log("Network Id: "+window.ethereum.networkVersion);
-    console.log("Hardhat Id: " + HARDHAT_NETWORK_ID)
 
     this.setState({
       networkError: 'Please connect Metamask to Localhost:8545'
